@@ -1,0 +1,24 @@
+node_modules
+typechain
+config.ts
+src/discord
+questionsDB.json
+accountDB.json
+databases/*.json
+
+*.js
+test.ts
+df.json
+*.txt
+*.log
+
+!credentials/*example.txt
+.env
+privates.txt
+proxies.txt
+*.csv
+KEY_CHECK_REGEXP
+
+
+## python
+venv
