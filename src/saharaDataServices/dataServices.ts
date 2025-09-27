@@ -157,6 +157,11 @@ async function depositIntoYB(index: number, signer: Wallet) {
             if (depositDone != undefined) {
                 return false
             }
+            let anyTokenPurchased = await YBDepositer.anyTokenPurchased()
+            if (anyTokenPurchased != undefined) {
+                YBDepositer.strategy = anyTokenPurchased
+                YBDepositer.print(`Already have ${anyTokenPurchased} in the wallet, depositing..`, c.blue)
+            }
             await YBDepositer.depositIntoStrategy()
             return true
         },
