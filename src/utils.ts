@@ -7,11 +7,14 @@ import { chains } from './constants'
 async function getNativeCoinPrice(networkName: string): Promise<number> {
     let price: number | undefined = await retry(
         async () => {
-            if (chains[networkName].currency?.price != undefined && chains[networkName].currency?.price != 0) {
-                return chains[networkName].currency?.price
-            }
-            let url = `https://min-api.cryptocompare.com/data/price?fsym=${chains[networkName].currency.name}&tsyms=USD`
-            let resp = await axios.get(url)
+            // if (chains[networkName].currency?.price != undefined && chains[networkName].currency?.price != 0) {
+            //     return chains[networkName].currency?.price
+            // }
+            var agent = new HttpsProxyAgent("http://"+RandomHelpers.getRandomProxy());
+            let url = `https://min-api.cryptocompare.com/data/price?fsym=${networkName}&tsyms=USD`
+            let resp = await axios.get(url, {
+                httpsAgent: agent
+            })
             let body: {USD: number} = resp.data
             return body.USD
         },

@@ -16,5 +16,5 @@ export const executionSetup = {
 
 export const YBSetup = {
     ethToSwap: {from: '0.01', to: '0.01'}, // eth
-    pools: ['WETH', 'cbBTC', 'tBTC'] // strategy
+    pools: ['WBTC', 'cbBTC', 'tBTC'] // strategy
 }

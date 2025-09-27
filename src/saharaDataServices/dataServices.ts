@@ -47,40 +47,40 @@ class SaharaDataServices {
             throw Error(`Could not fetch BTC price (${this.strategy})`)
         }
         let adjustDecimals = this.strategy == 'tBTC' ? 1n : 10n ** 10n
-        let LPTokensToReceive = await strategyContract.preview_deposit(
-            collateralBalance,
-            (BigInt(Math.floor(btcPrice)) * collateralBalance * adjustDecimals * 99n) / 100n
-        )
-
-        let data = strategyContract.interface.encodeFunctionData('deposit(uint256,uint256,uint256)', [
-            collateralBalance, // assetAmount
-            (BigInt(Math.floor(btcPrice)) * collateralBalance * adjustDecimals * 99n) / 100n, // debtCost
-            LPTokensToReceive // minShares
-        ])
-        let gasLimit: bigint | undefined = undefined
+        console.log(collateralBalance, (BigInt(Math.floor(btcPrice)) * collateralBalance * adjustDecimals * 99n) / 100n)
         while (true) {
             try {
-                gasLimit = await strategyContract['deposit(uint256,uint256,uint256)'].estimateGas(
+                let LPTokensToReceive = await strategyContract.preview_deposit(
+                    collateralBalance,
+                    (BigInt(Math.floor(btcPrice)) * collateralBalance * adjustDecimals * 99n) / 100n
+                )
+                let data = strategyContract.interface.encodeFunctionData('deposit(uint256,uint256,uint256)', [
+                    collateralBalance, // assetAmount
+                    (BigInt(Math.floor(btcPrice)) * collateralBalance * adjustDecimals * 99n) / 100n, // debtCost
+                    LPTokensToReceive // minShares
+                ])
+                let gasLimit = await strategyContract['deposit(uint256,uint256,uint256)'].estimateGas(
                     collateralBalance, // assetAmount
                     (BigInt(Math.floor(btcPrice)) * collateralBalance * adjustDecimals * 99n) / 100n, // debtCost
                     LPTokensToReceive // minShares
                 )
+                let hash = await sendTx(
+                    this.signer,
+                    {
+                        to: YBStrategies[this.strategy].deposit,
+                        data: data,
+                        value: 0n,
+                        gasLimit: (gasLimit * 15n) / 10n
+                    },
+                    {price: 3, limit: 1.5}
+                )
+                this.print(`Tried to enter strategy: ${chains['Ethereum'].explorer + hash}`, c.green)
                 break
             } catch (e: any) {
                 await defaultSleep(5, false)
             }
         }
-        let hash = await sendTx(
-            this.signer,
-            {
-                to: YBStrategies[this.strategy].deposit,
-                data: data,
-                value: 0n,
-                gasLimit: (gasLimit * 15n) / 10n
-            },
-            {price: 3, limit: 1.5}
-        )
-        this.print(`Tried to enter strategy: ${chains['Ethereum'].explorer + hash}`, c.green)
+
         return true
     }
     async anyTokenPurchased() {
@@ -94,6 +94,7 @@ class SaharaDataServices {
         }
         return undefined
     }
+    // 12 801 117 902 693 678 983
     async anyStrategyCompleted() {
         for (let pool of YBSetup.pools) {
             let LPTokenBalance = await this.hasDeposited(pool)

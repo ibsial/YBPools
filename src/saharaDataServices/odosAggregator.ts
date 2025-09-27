@@ -190,16 +190,19 @@ class OdosAggregator {
             console.log('OdosAggregator:executeSwap Could not get approval target')
             return false
         }
-        let approveHash = await approve(this.signer, quote.inTokens[0], approvalTarget, quote.inAmounts[0], quote.inAmounts[0])
-        if (DEV) {
-            console.log(
-                c.blue(
-                    `OdosAggregator:executeSwap ${tokenIn.symbol} approved ${
-                        approveHash == '' ? "don't need approve" : chains[this.networkName].explorer + approveHash
-                    }`
+        if (tokenIn.address != '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE') {
+            let approveHash = await approve(this.signer, quote.inTokens[0], approvalTarget, quote.inAmounts[0], quote.inAmounts[0])
+            if (DEV) {
+                console.log(
+                    c.blue(
+                        `OdosAggregator:executeSwap ${tokenIn.symbol} approved ${
+                            approveHash == '' ? "don't need approve" : chains[this.networkName].explorer + approveHash
+                        }`
+                    )
                 )
-            )
+            }
         }
+
         let tx: OdosAssembleType['transaction'] | undefined = await retry(
             async () => {
                 try {
