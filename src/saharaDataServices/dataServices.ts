@@ -129,6 +129,66 @@ class SaharaDataServices {
         )
         return success
     }
+    async withdrawFromStrategy() {
+        // has collateral check
+        let lpBalance = await getBalance(this.signer, this.signer.address, YBStrategies[this.strategy].LPToken)
+        if (lpBalance == 0n) {
+            return false
+        }
+        let strategyContract = YBStrategy__factory.connect(YBStrategies[this.strategy].deposit, this.signer)
+        let btcPrice = await getNativeCoinPrice('BTC')
+        if (btcPrice == 0) {
+            throw Error(`Could not fetch BTC price (${this.strategy})`)
+        }
+        let adjustDecimals = this.strategy == 'tBTC' ? 1n : 10n ** 10n
+        // console.log(collateralBalance, (BigInt(Math.floor(btcPrice)) * collateralBalance * adjustDecimals * 99n) / 100n)
+        while (true) {
+            try {
+                let LPTokensToReceive = await strategyContract.preview_withdraw(lpBalance)
+                let data = strategyContract.interface.encodeFunctionData('withdraw(uint256,uint256)', [
+                    lpBalance, // lpAmount
+                    LPTokensToReceive // min collateral to receive
+                ])
+                let gasLimit = await strategyContract['withdraw(uint256,uint256)'].estimateGas(
+                    lpBalance, // lpAmount
+                    LPTokensToReceive // min collateral to receive
+                )
+                let hash = await sendTx(
+                    this.signer,
+                    {
+                        to: YBStrategies[this.strategy].deposit,
+                        data: data,
+                        value: 0n,
+                        gasLimit: (gasLimit * 15n) / 10n
+                    },
+                    {price: 1.1, limit: 1.5}
+                )
+                this.print(`Tried to exit strategy: ${chains['Ethereum'].explorer + hash}`, c.green)
+                break
+            } catch (e: any) {
+                await defaultSleep(5, false)
+            }
+        }
+
+        return true
+    }
+    async sellCollateral() {
+        let odos = new OdosAggregator(this.signer, 'Ethereum', RandomHelpers.getRandomProxy(), RandomHelpers.proxies)
+        let nativeToken = {
+            address: '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE',
+            name: chains['Ethereum'].currency.name,
+            symbol: chains['Ethereum'].currency.name,
+            decimals: 18n
+        }
+        let tokenIn = {
+            address: YBStrategies[this.strategy].collateralToken,
+            name: this.strategy,
+            symbol: this.strategy,
+            decimals: YBStrategies[this.strategy].collateralTokenDecimals
+        }
+        let success = await odos.swap(tokenIn, nativeToken, await getBalance(this.signer, this.signer.address, tokenIn.address))
+        return success
+    }
     print(text: string, chalk?: (...text: unknown[]) => string) {
         function cleanLog(message: string) {
             return message.replaceAll(/[[0-9;]*m/g, '')
@@ -173,4 +233,36 @@ async function depositIntoYB(index: number, signer: Wallet) {
     }
     return result
 }
-export {depositIntoYB}
+async function withdrawFromYB(index: number, signer: Wallet, needSell = false) {
+    let result = await retry(
+        async () => {
+            let YBDepositer = new SaharaDataServices(index, signer.connect(getRandomProxyProvider(RandomHelpers.getRandomProxy(), 'Ethereum')))
+            YBDepositer.print('Account started', c.cyan)
+            let depositDone = await YBDepositer.anyStrategyCompleted()
+            if (depositDone != undefined) {
+                let withdrawDone = await YBDepositer.withdrawFromStrategy()
+                if (withdrawDone) {
+                    await defaultSleep(Math.random() * 20 + 20, false)
+                    YBDepositer.print(`${depositDone} withdrawn from YB`, c.green)
+                }
+            } else {
+                YBDepositer.print(`Already withdrawn from YB (or did not deposit)`, c.blue)
+            }
+
+            let anyTokenPurchased = await YBDepositer.anyTokenPurchased()
+            if (anyTokenPurchased != undefined && needSell) {
+                YBDepositer.print(`Found ${anyTokenPurchased} in the wallet, selling..`, c.blue)
+                await YBDepositer.sellCollateral()
+            } else {
+                YBDepositer.print(`No tokens found in the wallet, skipping sell..`, c.blue)
+            }
+            return true
+        },
+        {maxRetryCount: 10, retryInterval: 1, throwOnError: false, errorMessage: 'Error on depositIntoYB', needLog: true}
+    )
+    if (result == undefined) {
+        return false
+    }
+    return result
+}
+export {depositIntoYB, withdrawFromYB}

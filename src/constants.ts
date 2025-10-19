@@ -1,10 +1,18 @@
 import {Chain} from './types'
 
 export const scenarios = [
-    // {
-    //     name: `Register season 2`,
-    //     value: 'Register season 2'
-    // }
+    {
+        name: `Deposit`,
+        value: 'Deposit'
+    },
+    {
+        name: `Withdraw`,
+        value: 'Withdraw'
+    },
+    {
+        name: `Withdraw+Sell`,
+        value: 'Withdraw+Sell'
+    }
 ]
 
 export const YBStrategies: {
